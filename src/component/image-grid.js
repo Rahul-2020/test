@@ -1,9 +1,9 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import Modal from './modal';
 import FilterImages from './filter-images';
 
 function ImageGrid() {
-  let isFetch = true;
+  let isFetch = useRef(true);
 
   const [isLoading, setIsLoading] = useState(true);
   const [images, setImage] = useState([]);
@@ -11,10 +11,46 @@ function ImageGrid() {
   let [count, setCount] = useState(1);
 
   useEffect(() => {
+    // get all images, 30 images per load
+    const getImages = () => {
+      const url = `https://pixabay.com/api/?key=12937325-2751ca46c27b868deede35ca0&image_type=all&per_page=30&page=${count}`;
+      
+      fetch (url)
+      .then((res) => res.json())
+      .then((data) => {
+        let result = data.hits.map((item) => {
+          return {
+            id: item.id,
+            tags: item.tags,
+            previewURL: item.previewURL,
+            largeImageURL: item.largeImageURL
+          }
+        })
+        setIsLoading(false);
+        result = [...images, ...result];
+        setImage(result);
+        isFetch.current = false;
+      })
+      .catch((err) => {
+        console.log('err', err);
+        isFetch.current = false;
+      });
+    }
+
     getImages();
   }, [count])
 
   useEffect(() => {
+    const loadMore = () => {    
+      if (isFetch.current) {
+        return;
+      }
+
+      if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 50)) {
+        isFetch.current = true;
+        setCount(count + 1);
+      }
+  }
     window.addEventListener('scroll', debounce(loadMore, 100));
 
     return () => window.removeEventListener('scroll', debounce(loadMore, 100));
@@ -29,44 +65,11 @@ function ImageGrid() {
     }
   }
 
-  const loadMore = () => {    
-    if (isFetch) {
-      return;
-    }
-
-    if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 50)) {
-      isFetch = true;
-      setCount(count + 1);
-    }
-  }
-  // get all images, 30 images per load
-  const getImages = () => {
-    const url = `https://pixabay.com/api/?key=12937325-2751ca46c27b868deede35ca0&image_type=all&per_page=30&page=${count}`;
-    
-    fetch (url)
-    .then((res) => res.json())
-    .then((data) => {
-      let result = data.hits.map((item) => {
-        return {
-          id: item.id,
-          tags: item.tags,
-          previewURL: item.previewURL,
-          largeImageURL: item.largeImageURL
-        }
-      })
-      setIsLoading(false);
-      result = [...images, ...result];
-      setImage(result);
-      isFetch = false;
-    })
-    .catch((err) => {
-      console.log('err', err);
-      isFetch = false;
-    });
-  }
+  
+  
   // display image in modal
   const getSingleImage = (event) => {
-    setModalImage(<img src={event.target.dataset.src} />);
+    setModalImage(<img alt='' src={event.target.dataset.src} />);
   }
 
    // close modal
